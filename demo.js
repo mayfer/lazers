@@ -1,3 +1,15 @@
+
+function clone(obj){
+    if(obj == null || typeof(obj) != 'object')
+        return obj;
+
+    var temp = obj.constructor(); // changed
+
+    for(var key in obj)
+        temp[key] = clone(obj[key]);
+    return temp;
+}
+
 Array.prototype.remove = function(from, to) {
   var rest = this.slice((to || from) + 1 || this.length);
     this.length = from < 0 ? this.length + from : from;
@@ -42,61 +54,80 @@ function demo(canvas, ctx) {
         demo.cursor_y = e.pageY;
     });
 
-    var squares = [];
-    
+    cstart = 0;
+
+    var start = Date.now();
+    var follow_cursor = true;
+    $(demo).on('click', function(e) {
+        follow_cursor = !follow_cursor;
+        cstart = timediff + start;
+        blew_up = !blew_up;
+    });
+    var last_cursor = {
+        x: 0,
+        y: 0,
+    }
+
+    var img = new Image();
+    img.src = "http://placekitten.com/g/200/300";
+
+    var degrees = 0;
+
+    var circle = {
+        x: 200,
+        y: 200,
+    }
+
+    var blew_up = false;
+
     //ctx.fillStyle   = '#00f';
     this.draw = function(canvas, ctx) {
+        var now = Date.now();
+        timediff = start - now;
+
         var x = canvas.width/2 - 50;
         var y = canvas.height/2 - 50;
 
-        var proximity_x = Math.abs( (canvas.width/2) - demo.cursor_x) / (canvas.width/2);
-        var proximity_y = Math.abs( (canvas.height/2) - demo.cursor_y) / (canvas.height/2);
-
-        var proximity = Math.sqrt(Math.pow(proximity_x, 2) + Math.pow(proximity_y, 2));
-
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        if(proximity < 0.011) {
+
+        if(follow_cursor) {
+            last_cursor = {
+                x: demo.cursor_x,
+                y: demo.cursor_y,
+            }
+        }
+        ctx.save();
+        degrees = timediff/10;
+        ctx.translate(last_cursor.x, last_cursor.y);
+        ctx.rotate(degrees*Math.PI/180);
+
+        ctx.drawImage(img, 0, 0);
+        ctx.restore();
+
+        if(!blew_up) {
+
+            circle.x += (last_cursor.x - circle.x) / 100 + Math.cos(timediff/100)*10;
+            circle.y += (last_cursor.y - circle.y) / 100 + Math.cos(timediff/100)*10;
+
+            for(var i=0; i<10; i++) {
+
+                ctx.beginPath();
+                ctx.arc(circle.x, circle.y, 30, 0, 2 * Math.PI, false);
+                ctx.fillStyle = '#a00';
+                ctx.fill();
+            }
+        } else {
+            for(var rad=0; rad<=Math.PI*2; rad+=Math.PI/4) {
+                var ctimediff = cstart - Date.now();
+                ctx.beginPath();
+                var x = circle.x + (ctimediff/100)*Math.sin(rad);
+                var y = circle.y + (ctimediff/100)*Math.cos(rad);
+                ctx.arc(x, y, 5, 0, 2 * Math.PI, false);
+                ctx.fillStyle = '#a00';
+                ctx.fill();
+            }
             
-            var color = get_random_color(30, 5, 8);
-            squares.push({
-                x: Math.random()*canvas.width,
-                y: Math.random()*canvas.height,
-                color: color,
-            });
         }
-
-        for(var i=0; i<squares.length; i++) {
-            ctx.fillStyle = squares[i].color;
-            ctx.fillRect(squares[i].x, squares[i].y, 10, 10)
-
-
-        }
-        ctx.lineWidth = 5;
-        if(squares.length > 0 && Math.random() < 0.5) {
-            var index = Math.floor(Math.random()*squares.length);
-            var square = squares[index];
-            ctx.beginPath();
-
-            var grad= ctx.createLinearGradient(0, canvas.height, square.x+5, square.y+5);
-            grad.addColorStop(0, "white");
-            grad.addColorStop(1, "red");
-            ctx.strokeStyle = grad;
-
-            ctx.strokeStyle = grad;
-            ctx.moveTo(0, canvas.height);
-            ctx.lineTo(square.x+5, square.y+5);
-            ctx.stroke();
-            squares.remove(index);
-        }
-
-        var red = Math.floor(255 * (1 - proximity));
-        var green = 100;
-        var blue = Math.floor(255 * (proximity));
-
-        var color = "rgba("+red+", "+green+", "+blue+", 1)";
-        ctx.fillStyle = color;
-        
-        ctx.fillRect(x, y, 100, 100);
     }
 
     return this;
